@@ -12,7 +12,8 @@
 8. [08 · 部署与运维](./08-deployment.md)
 9. [09 · 产品路线图与 MVP 范围](./09-roadmap.md)
 10. [10 · 安全、合规与成本控制](./10-security-compliance-cost.md)
+11. [11 · AI 协作开发指南（Cursor 实战版）](./11-ai-collaboration-guide.md) — **用 Cursor 写代码的人必读**
 
-> 文档版本：v0.1（设计阶段）
+> 文档版本：v0.2（进入 MVP 编码阶段，已补充 AI 协作指南 + Cursor 项目规则 `.cursor/rules/`）
 >
 > 维护方式：每个 PR 都需要同步更新对应章节；重大调整请在对应文档头部"变更记录"区追加条目。

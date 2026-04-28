@@ -47,6 +47,9 @@ SelfMedia 是面向个人创作者、MCN 机构和企业新媒体团队的 **AI 
 8. [部署与运维](./docs/08-deployment.md)
 9. [产品路线图与 MVP 范围](./docs/09-roadmap.md)
 10. [安全、合规与成本控制](./docs/10-security-compliance-cost.md)
+11. [AI 协作开发指南（Cursor 实战版）](./docs/11-ai-collaboration-guide.md) — **用 Cursor 接力开发剩余部分必读**
+
+> 配套的 Cursor 项目规则位于 [`.cursor/rules/`](./.cursor/rules/)，会被 Cursor Agent 自动加载，强制 AI 按规范产出代码。
 
 ## 5. 快速预览：一条内容的生命周期
 
@@ -85,7 +88,13 @@ SelfMedia 是面向个人创作者、MCN 机构和企业新媒体团队的 **AI 
 
 ## 6. 仓库状态
 
-当前仓库为 **设计阶段**，本次提交完成产品 / 架构 / 技术 / 数据 / API / 部署 / 路线图 等全套设计文档。后续将按 [路线图](./docs/09-roadmap.md) 的 MVP → V1 → V2 顺序进入编码实现。
+当前仓库为 **设计完成 + 准备进入 MVP 编码** 阶段：
+
+- ✅ 全套设计文档（`docs/01~10`）
+- ✅ AI 协作开发指南（`docs/11`）：把 MVP / V1 拆成 30+ 张 AI 可执行的任务卡，每张都带"触达目录 / 禁止动 / AI 约束 / 自验证清单 / 人审重点"。
+- ✅ Cursor 项目规则（`.cursor/rules/`）：以"宪法 + SOP"两层钉死 AI 行为，防止自由发挥。
+
+后续按 [路线图](./docs/09-roadmap.md) 的 M1 MVP → M2 V1 → M3+ 顺序，**用 Cursor + AI 按任务卡逐张实现**。
 
 ## 7. License
 
