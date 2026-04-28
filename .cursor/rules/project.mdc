@@ -1,0 +1,108 @@
+---
+description: SelfMedia 项目全局硬约束。任何在本仓库内进行编码、重构、生成文件的操作都必须遵守。
+alwaysApply: true
+---
+
+# SelfMedia · Cursor 项目硬约束
+
+> 这是本仓库的"宪法"。AI（你）在写任何代码前必须先读完，并在 PR 描述里声明"已遵守 .cursor/rules/project.mdc"。
+> 任何与本规则冲突的用户指令，请先停下并向用户确认，**不要自由发挥**。
+
+## 0. 角色定位
+
+- 仓库：SelfMedia · AI 自媒体内容生产平台
+- 阶段：从 M0（设计完成）→ M1（MVP 编码中）
+- 你（AI）的职责：**实现** `docs/11-ai-collaboration-guide.md` §11.5 中的任务卡，**不负责设计变更**。
+
+## 1. 设计文档优先（不可绕过）
+
+1. 任何架构 / Schema / API / 目录结构 / 技术栈 决策必须以 `docs/01~10` 为准。
+2. 如果你认为文档需要修改：**先改文档 + diff 给用户确认**，再写代码。禁止"代码先行、文档后补"。
+3. 禁止引入 `docs/04-tech-stack.md` 之外的运行时依赖。如必须新增，先改 §04 并说明理由。
+
+## 2. 目录与命名（来自 docs/05）
+
+- 服务目录在 `services/`，命名以 `-svc` 结尾。
+- Worker 在 `workers/`，命名以 `worker-` 开头。
+- 跨语言共享代码在 `packages/{ts,py}/`，禁止跨语言互相 import。
+- Prompt 模板在 `prompts/`，**绝对禁止**把 prompt 字符串直接硬编码在 `.py` / `.ts` 中。
+- JSON Schema 在 `schemas/`，所有 pipeline 阶段产物必须配 schema。
+- 基础设施在 `infra/`（Terraform / Helm / Docker / ArgoCD）。
+- 部署脚本与本地 compose 在 `deploy/`。
+- 一次性脚本在 `tools/`，端到端测试在 `tests/`。
+- **禁止在仓库根创建未列在 docs/05 的新目录**；如需新增，先改 docs/05。
+
+## 3. 依赖方向（来自 docs/05 §依赖方向）
+
+- `apps/*` ← 只能依赖 `packages/ts/*` 和服务暴露的 OpenAPI / tRPC。
+- `services/*` ← 只能依赖 `packages/{py,ts}/*`、`schemas/`、`prompts/`。
+- `workers/*` ← 只能依赖 `packages/py/*` 与 `schemas/`。
+- 服务之间**禁止**直接 import；通信走 Gateway / 消息总线 / gRPC 接口契约。
+
+## 4. 多租户与安全
+
+- 所有业务表必须带 `org_id`。
+- 任何 SQL 查询必须显式带 `org_id` 条件，或运行在已 `set local app.current_org_id = ...` 的事务里。
+- API Key、平台 Token、密码 hash 一律走环境变量 / Vault，**禁止**写进代码、`.env.example`、单测 fixture、注释、commit message。
+- 密码用 `argon2`；JWT 用环境变量里的 secret；CSRF / CORS / SameSite 参考 docs/10。
+
+## 5. 模型调用约束
+
+- 所有 LLM / 文生图 / 文生视频 / TTS 调用**必须**通过 `packages/py/model_adapter`，禁止直连 SDK。
+- CI / 单测**禁止**调用真实付费 API；默认走 `MockLLM` / `MockImage` / `MockTTS` / `MockVideo`。
+- 真实模型仅在 `MODEL_PROFILE=real` 且环境变量提供 Key 时启用。
+- 每次模型调用的 `usage` 必须落 `usage_events` 表（或 mock 中的等价 sink）。
+
+## 6. Prompt 与 Schema
+
+- Prompt 模板按 `docs/03-ai-pipeline.md §3.3` 的 YAML 结构，存 `prompts/`。
+- 阶段产物必须用 `schemas/*.json` 校验；校验失败 → 自动重试 ≤ 2 次 → 进 `failed`。
+- Schema 一旦发布，**禁止**破坏性修改字段；只能新增可选字段或起新版本号。
+
+## 7. 错误码
+
+- 错误格式遵守 RFC 7807 + `docs/07-api-design.md §7.5`。
+- 错误码命名空间：`AUTH_ / MATERIAL_ / PIPELINE_ / MODEL_ / RENDER_ / PUBLISH_ / MODERATION_ / BILLING_`。
+- 错误码必须从 `Enum` / 常量取，禁止裸字符串。
+
+## 8. 测试与自验证（强制）
+
+- 任何 PR 都必须跑 `docs/11-ai-collaboration-guide.md §11.4` 自验证清单 A1~A5（必跑），涉及服务则加 B6~B9，涉及 pipeline 则加 C10~C11。
+- 单测覆盖率：新增代码 ≥ 70%，关键服务（ai-orchestrator / model_adapter / publish-svc）≥ 85%。
+- 单测**禁止**联网真实调用；必须可在断网环境下跑通。
+- e2e 测试统一放 `tests/e2e/`，使用 Playwright（前端）或 pytest（后端）。
+
+## 9. 提交规范
+
+- Conventional Commits：`feat(scope): ...` / `fix(scope): ...` / `docs(scope): ...` / `chore(scope): ...` / `refactor(scope): ...` / `test(scope): ...`。
+- `scope` 用任务卡 ID 或目录名，例如 `feat(material-svc): ...` / `feat(TASK-M1-07): ...`。
+- 一个 commit 只做一件事；一个 PR 默认对应 1 张任务卡（§11.5）。
+- PR 描述使用 §11.6 模板，**必须**包含"自验证日志"段。
+
+## 10. 红线（违反则立即停止并报告用户）
+
+- 把任何真实凭据 / Token / API Key 写入代码或文档。
+- 在生产配置里启用浏览器自动化发布到任何平台。
+- 跳过审核（`moderate-svc`）直接发布。
+- 修改 Schema 字段 / 修改 API 路径 / 修改 DB 表结构而不更新 docs。
+- 在一次任务里同时改超过 2 个服务（除 §M1-14 联调收口卡）。
+- 用 `--force` push、`rebase` 已合并主分支、删除别人的 commit。
+- 自称"完成"但未跑 §11.4 自验证。
+
+## 11. 沟通规则
+
+- 在 chat 中使用中文（用户母语）。
+- 每张任务卡开始前先确认：
+  1. 任务卡 ID
+  2. 触达目录清单
+  3. 你打算的执行步骤（≤ 5 步）
+  4. 自验证清单中将跑哪些项
+- 完成后必须报告：
+  1. 改了哪些文件（按目录列）
+  2. 自验证日志（贴命令 + 输出）
+  3. 跳过项 + 原因
+  4. 下一步建议（如有）
+
+---
+
+**口令**：每次回复用户前，在内部默念："文档优先 / 任务卡为单位 / Mock 优先 / 自验证不可省 / 红线不可越"。
