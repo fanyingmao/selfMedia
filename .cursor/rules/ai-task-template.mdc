@@ -1,0 +1,119 @@
+---
+description: 当用户在对话中提到"任务卡 / TASK-Mx-xx / 实现某个 service / 实现某个 worker"时自动加载，提供单任务执行 SOP。
+globs:
+  - "services/**"
+  - "workers/**"
+  - "packages/**"
+  - "apps/**"
+  - "tests/**"
+  - "schemas/**"
+  - "prompts/**"
+---
+
+# 单任务执行 SOP（Cursor Agent 必须按此流程跑）
+
+> 触发条件：用户给你一张 TASK-Mx-xx 任务卡，或者要求你"实现 services/xxx-svc / workers/worker-xxx"。
+> 触发后**立即**按以下顺序执行，不要省略任何一步。
+
+## Step 0 · 阅读上下文（必须）
+
+依次读这些文件，**不要凭记忆**：
+
+1. `.cursor/rules/project.mdc`（硬约束）
+2. `docs/11-ai-collaboration-guide.md` 中本任务卡所在章节
+3. 任务卡里"输入"列出的 docs / schemas / 已存在代码
+4. 当前任务"触达目录"下已有的所有文件
+
+读完后，在 chat 输出一段 ≤ 10 行的 **执行摘要**：
+- 任务卡 ID 与一句话目标
+- 触达目录（清单）
+- 禁止动目录（清单，从规则里抄）
+- 你打算的 ≤ 5 步执行计划
+- 你打算跑的自验证项（A/B/C 编号）
+- 任何"我需要先和用户确认"的地方
+
+**等用户回 OK 再继续**（除非任务卡明确说"无须确认"）。
+
+## Step 1 · 文档 / Schema 优先
+
+- 如果本任务需要新增 / 修改 docs 或 schemas，**先动它们**，diff 给用户。
+- 等用户确认后再写代码。
+- 这一步如果跳过，后面写的代码大概率要重写。
+
+## Step 2 · 写最小可运行版本
+
+- 先写"骨架 + 1 条 happy path 端到端"，跑通再补全。
+- 严格遵守 `docs/05-directory-structure.md` 命名约定。
+- 公共逻辑放 `packages/`，禁止在多个服务间复制粘贴。
+- 不要超出"触达目录"范围；如确需跨目录，先停下问用户。
+
+## Step 3 · 写测试（与代码同 PR）
+
+- 单测：**至少**覆盖 happy path + 1 个失败路径 + 1 个边界。
+- 禁止联网；外部依赖一律 mock。
+- 覆盖率新增代码 ≥ 70%，关键服务 ≥ 85%。
+
+## Step 4 · 自验证（按 §11.4 跑命令）
+
+按顺序执行，**把命令和关键输出贴进 chat**：
+
+```
+A1 依赖装得上     pnpm install / uv sync
+A2 类型 + lint    pnpm typecheck && pnpm lint  /  ruff check && mypy
+A3 格式化干净     pnpm format / ruff format
+A4 单测           pnpm test / pytest -q
+A5 Schema 校验    （涉及 pipeline 时）
+
+涉及服务 / API：
+B6 启动           uvicorn / pnpm dev
+B7 健康检查       curl /health
+B8 happy path     curl 一个真实例子
+B9 失败路径       curl 非法请求 → 期望错误码
+
+涉及 pipeline：
+C10 端到端 Mock   跑 1 条 understand → render → 输出 mp4 路径
+C11 断点续跑     标 failed → retry → 幂等通过
+```
+
+**任何一步失败 = 任务未完成**，不要 commit，回到 Step 2 修复。
+
+## Step 5 · 提交 + PR
+
+```bash
+git checkout -b cursor/<short-task-name>-428b   # 分支命名遵守 cloud agent 规则
+git add <仅本任务相关文件>
+git commit -m "feat(<scope>): <一句话描述> (TASK-Mx-xx)"
+git push -u origin cursor/<short-task-name>-428b
+```
+
+PR 描述按 `docs/11-ai-collaboration-guide.md §11.6` 模板写，**必须**包含"自验证日志"段。
+
+## Step 6 · 报告用户
+
+最终回复用户时给出：
+
+1. ✅ 完成的文件清单（按目录归类）
+2. 📋 自验证结果（A/B/C 各项 pass/skip）
+3. ⚠️ 跳过的项 + 原因 + 建议
+4. 🔗 PR 链接
+5. ➡️ 下一张任务卡建议
+
+---
+
+## 反模式（命中即停）
+
+- 没读 docs / schemas 就开写
+- 写完没跑 A1~A5 就说"完成了"
+- 一次改 5 个服务 / 5 个无关包
+- 把真实 API Key 写进任何文件
+- 修改了 Schema 字段而没新增版本号
+- 在 `services/*` 里直接 import 另一个 `services/*`
+- 在 `.py` / `.ts` 里硬编码 prompt 字符串（应走 `prompt_center`）
+- 用裸字符串写错误码（应走 Enum）
+- commit 信息不是 Conventional Commits 格式
+
+---
+
+## 当任务卡描述与本规则冲突时
+
+→ 以 `.cursor/rules/project.mdc` 与 `docs/01~10` 为准，停下问用户。
